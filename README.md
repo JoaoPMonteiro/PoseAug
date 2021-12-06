@@ -14,6 +14,8 @@ with modifications to enable pretrained models provided by the aformentioned pap
 
 https://github.com/jfzhang95/
 
+https://github.com/Garfield-kh
+
 https://github.com/luxonis/
 
 https://github.com/geaxgx/
