@@ -8,7 +8,7 @@ CVPR 2021 (oral presentation)
 
 with modifications to enable pretrained models [provided](https://drive.google.com/drive/folders/1mLttbyZxsRdN5kw1IRdzZozyfndhV3Wh) by the aformentioned paper authors to be exported to onnx and blob formats
 
-#### additional steps - datasets (addapted from https://github.com/jfzhang95/PoseAug/blob/main/DATASETS.md)
+#### additional steps - required datasets (addapted from https://github.com/jfzhang95/PoseAug/blob/main/DATASETS.md)
    ```
    ${PoseAug}
    ├── data
