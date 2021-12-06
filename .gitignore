@@ -132,3 +132,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# wally
+/data/*.npz
+data_extra/test_set/*.npz
