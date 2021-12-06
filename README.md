@@ -11,4 +11,7 @@ with modifications to enable pretrained models provided by the aformentioned pap
 > ./do_stuff.sh
 
 ### Acknowledgements
-https://github.com/jfzhang95/PoseAug/
+https://github.com/jfzhang95/
+https://github.com/luxonis/
+https://github.com/geaxgx/
+https://github.com/PINTO0309/
