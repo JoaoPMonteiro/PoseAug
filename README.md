@@ -6,7 +6,7 @@ Fork of the code [repository](https://github.com/jfzhang95/PoseAug/) for the pap
 CVPR 2021 (oral presentation)  
 [[paper](https://arxiv.org/pdf/2105.02465.pdf)] 
 
-with modifications to enable pretrained models [provided](https://drive.google.com/drive/folders/1mLttbyZxsRdN5kw1IRdzZozyfndhV3Wh) by the aformentioned paper authors to be exported to onnx and blob formats
+with modifications to enable the pretrained models [provided](https://drive.google.com/drive/folders/1mLttbyZxsRdN5kw1IRdzZozyfndhV3Wh) by the aforementioned paper authors to be exported to onnx and blob formats
 
 #### additional steps - required datasets (addapted from https://github.com/jfzhang95/PoseAug/blob/main/DATASETS.md)
    ```
