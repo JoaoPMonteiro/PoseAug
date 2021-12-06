@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 '''
 this folder and code is modified base on ST-GCN code,
@@ -62,11 +63,13 @@ class Model_defaultDropout(nn.Module):
         # original graph
         self.graph = st_gcn_Graph(self.layout, self.strategy, pad=self.pad)
         # get adjacency matrix of K clusters
-        self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cuda()  # K, T*V, T*V
+        #self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cuda()  # K, T*V, T*V
+        self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cpu() #wally
 
         # pooled graph
         self.graph_pool = st_gcn_Graph_pool(self.layout, self.strategy, pad=self.pad)
-        self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cuda()
+        #self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cuda()
+        self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cpu() #wally
 
         # build networks
         kernel_size = self.A.size(0)
@@ -158,7 +161,8 @@ class Model_defaultDropout(nn.Module):
         x_up_sub = self.conv2(x_up_sub)  # N, C, T, 5
 
         # upsample
-        x_up = torch.zeros((N * M, fc_out, T, V)).cuda()
+        #x_up = torch.zeros((N * M, fc_out, T, V)).cuda()
+        x_up = torch.zeros((N * M, fc_out, T, V)).cpu() #wally
         for i in range(len(self.graph.part)):
             num_node = len(self.graph.part[i])
             x_up[:, :, :, self.graph.part[i]] = x_up_sub[:, :, :, i].unsqueeze(-1).repeat(1, 1, 1, num_node)
@@ -218,11 +222,13 @@ class Model(nn.Module):
         # original graph
         self.graph = st_gcn_Graph(self.layout, self.strategy, pad=self.pad)
         # get adjacency matrix of K clusters
-        self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cuda()  # K, T*V, T*V
+        #self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cuda()  # K, T*V, T*V
+        self.A = torch.tensor(self.graph.A, dtype=torch.float32, requires_grad=False).cpu() #wally
 
         # pooled graph
         self.graph_pool = st_gcn_Graph_pool(self.layout, self.strategy, pad=self.pad)
-        self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cuda()
+        #self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cuda()
+        self.A_pool = torch.tensor(self.graph_pool.A, dtype=torch.float32, requires_grad=False).cpu()
 
         # build networks
         kernel_size = self.A.size(0)
@@ -275,6 +281,100 @@ class Model(nn.Module):
         else:
             return x
 
+    # https://github.com/huyouare/CS231n/blob/master/assignment2/cs231n/im2col.py
+    def get_im2col_indices(self, x_shape, field_height, field_width, padding=1, stride=1):
+        # First figure out what the size of the output should be
+        N, C, H, W = x_shape
+        assert (H + 2 * padding - field_height) % stride == 0
+        assert (W + 2 * padding - field_width) % stride == 0
+        out_height = (H + 2 * padding - field_height) / stride + 1
+        out_width = (W + 2 * padding - field_width) / stride + 1
+
+        i0 = np.repeat(np.arange(field_height), field_width)
+        i0 = np.tile(i0, C)
+        i1 = stride * np.repeat(np.arange(out_height), out_width)
+        j0 = np.tile(np.arange(field_width), field_height * C)
+        j1 = stride * np.tile(np.arange(out_width), out_height)
+        i = i0.reshape(-1, 1) + i1.reshape(1, -1).astype(int)
+        j = j0.reshape(-1, 1) + j1.reshape(1, -1).astype(int)
+
+        k = np.repeat(np.arange(C), field_height * field_width).reshape(-1, 1).astype(int)
+
+        return (k, i, j)
+
+    # https://github.com/huyouare/CS231n/blob/master/assignment2/cs231n/im2col.py
+    def im2col_indices(self, x, field_height, field_width, padding=1, stride=1):
+        """ An implementation of im2col based on some fancy indexing """
+        # Zero-pad the input
+        p = padding
+        x_padded = np.pad(x, ((0, 0), (0, 0), (p, p), (p, p)), mode='constant')
+
+        k, i, j = self.get_im2col_indices(x.shape, field_height, field_width, padding,
+                                     stride)
+
+        cols = x_padded[:, k, i, j]
+        C = x.shape[1]
+        cols = cols.transpose(1, 2, 0).reshape(field_height * field_width * C, -1)
+        return cols
+
+    #https://github.com/huyouare/CS231n/blob/master/assignment2/cs231n/im2col.py
+    def col2im_indices(self, cols, x_shape, field_height=3, field_width=3, padding=1,
+                       stride=1):
+        """ An implementation of col2im based on fancy indexing and np.add.at """
+        N, C, H, W = x_shape
+        H_padded, W_padded = H + 2 * padding, W + 2 * padding
+        x_padded = np.zeros((N, C, H_padded, W_padded), dtype=cols.dtype)
+        k, i, j = self.get_im2col_indices(x_shape, field_height, field_width, padding,
+                                     stride)
+        cols_reshaped = cols.reshape(C * field_height * field_width, -1, N)
+        cols_reshaped = cols_reshaped.transpose(2, 0, 1)
+        np.add.at(x_padded, (slice(None), k, i, j), cols_reshaped)
+        if padding == 0:
+            return x_padded
+        return x_padded[:, :, padding:-padding, padding:-padding]
+
+    def test_maxPool(self, x_in):
+        x = x_in.detach().numpy()
+        #https://agustinus.kristia.de/techblog/2016/07/18/convnet-maxpool-layer/
+        # [xx] Let say our input X is 5x10x28x28
+        # [xx] Our pooling parameter are: size = 2x2, stride = 2, padding = 0
+        # [xx] i.e. result of 10 filters of 3x3 applied to 5 imgs of 28x28 with stride = 1 and padding = 1
+
+        # 1x256x1x5
+        # size = (1,5), stride = (1,5)
+
+        n = 1
+        d = 256
+        h = 1
+        w = 5
+        # First, reshape it to 50x1x28x28 to make im2col arranges it fully in column
+        X_reshaped = x.reshape(n * d, 1, h, w)
+
+        size = (1, 5)
+        stride = 5
+        # The result will be 4x9800
+        # Note if we apply im2col to our 5x10x28x28 input, the result won't be as nice: 40x980
+        X_col = self.im2col_indices(X_reshaped, h, w, padding=0, stride=stride)
+
+        # Next, at each possible patch location, i.e. at each column, we're taking the max index
+        max_idx = np.argmax(X_col, axis=0)
+
+        # Finally, we get all the max value at each column
+        # The result will be 1x9800
+        out = X_col[max_idx, range(max_idx.size)]
+
+        h_out = 1
+        w_out = 1
+        # Reshape to the output size: 14x14x5x10
+        out = out.reshape(h_out, w_out, n, d)
+
+        # Transpose to get 5x10x14x14 output
+        out = out.transpose(2, 3, 0, 1)
+
+        out_out = torch.from_numpy(out)
+
+        return out_out.to('cpu')
+
     def forward(self, x, out_all_frame=False):
 
         # data normalization
@@ -296,11 +396,48 @@ class Model(nn.Module):
         x = x.view(N, -1, T, V)  # N, C, T ,V
 
         # Pooling
-        for i in range(len(self.graph.part)):
-            num_node = len(self.graph.part[i])
-            x_i = x[:, :, :, self.graph.part[i]]
-            x_i = self.graph_max_pool(x_i, (1, num_node))
-            x_sub1 = torch.cat((x_sub1, x_i), -1) if i > 0 else x_i  # Final to N, C, T, (NUM_SUB_PARTS)
+
+        #for i in range(len(self.graph.part)):
+        #    num_node = len(self.graph.part[i])
+        #    #'''
+        #    x_i = x[:, :, :, self.graph.part[i]] #wally
+        #    x_i = self.graph_max_pool(x_i, (1, num_node)) #wally
+        #    '''
+        #    x_i = x[:, :, :, 0] #wally
+        #    '''
+        #    x_sub1 = torch.cat((x_sub1, x_i), -1) if i > 0 else x_i  # Final to N, C, T, (NUM_SUB_PARTS)
+
+        x_i_0 = x[:, :, :, self.graph.part[0]]  # wally
+        x_i_0 = self.graph_max_pool(x_i_0, (1, 3))  # wally
+        x_sub1_alt = x_i_0
+        x_i_1 = x[:, :, :, self.graph.part[1]]  # wally
+        x_i_1 = self.graph_max_pool(x_i_1, (1, 3))  # wally
+        x_sub1_alt = torch.cat((x_sub1_alt, x_i_1), -1)
+        x_i_2 = x[:, :, :, self.graph.part[2]]  # wally
+        x_i_2 = self.graph_max_pool(x_i_2, (1, 3))  # wally
+        x_sub1_alt = torch.cat((x_sub1_alt, x_i_2), -1)
+        x_i_3 = x[:, :, :, self.graph.part[3]]  # wally
+        x_i_3 = self.graph_max_pool(x_i_3, (1, 3))  # wally
+        x_sub1_alt = torch.cat((x_sub1_alt, x_i_3), -1)
+
+        x_i_4 = x[:, :, :, self.graph.part[4]]  # wally
+        #x_i_4 = self.graph_max_pool(x_i_4, (1, 5))  # wally
+
+        #x_i_4_alt1 = nn.MaxPool2d(kernel_size=(1, 5), stride=(1, 5))(x_i_4)
+        x_i_4 = self.test_maxPool(x_i_4)
+
+        #x_i_4 = torch.nn.functional.max_pool2d(x_i_4, (1, 5), (1, 5), 0, 1, False, False)
+        #x_i_4 = x[:, :, :, [0]]
+
+        x_sub1_alt = torch.cat((x_sub1_alt, x_i_4), -1)
+        x_sub1 = x_sub1_alt
+
+
+        #wally_0 = torch.eq(x_i_4_alt1, x_i_4_alt2)
+        #wally_1 = wally_0.float()
+        #wally_2 = torch.sum(wally_1)
+        #wally_3 = torch.numel(wally_1)
+
 
         x_sub1, _ = self.st_gcn_pool[0](x_sub1.view(N, -1, 1, T * len(self.graph.part)),
                                         self.A_pool.clone())  # N, 512, 1, (T*NUM_SUB_PARTS)
@@ -314,13 +451,57 @@ class Model(nn.Module):
         x_up_sub = self.conv2(x_up_sub)  # N, C, T, 5
 
         # upsample
-        x_up = torch.zeros((N * M, fc_out, T, V)).cuda()
+        #x_up = torch.zeros((N * M, fc_out, T, V)).cuda()
+        #x_up = torch.zeros((N * M, fc_out, T, V)).cpu() # wally
+
+
         for i in range(len(self.graph.part)):
             num_node = len(self.graph.part[i])
-            x_up[:, :, :, self.graph.part[i]] = x_up_sub[:, :, :, i].unsqueeze(-1).repeat(1, 1, 1, num_node)
+            x_wally = x_up_sub[:, :, :, i].unsqueeze(-1).repeat(1, 1, 1, num_node)
+            x_wally_sub1 = torch.cat((x_wally_sub1, x_wally), -1) if i > 0 else x_wally
+
+        #x_up_wally = torch.zeros((N * M, fc_out, T, V)).cpu()
+        qwer_a = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12], [13, 14, 15, 16]]
+        #qwer_b = [[11, 12, 13], [14, 15, 16], [4, 5, 6], [1, 2, 3], [0], [7, 8, 9, 10]]
+        tmeptemp_0 = x_wally_sub1[:, :, :, qwer_a[0]]  # [11, 12, 13]
+        tmeptemp_1 = x_wally_sub1[:, :, :, qwer_a[1]]  # [14, 15, 16]
+        tmeptemp_2 = x_wally_sub1[:, :, :, qwer_a[2]]  # [4, 5, 6]
+        tmeptemp_3 = x_wally_sub1[:, :, :, qwer_a[3]]  # [1, 2, 3]
+        tmeptemp_4 = x_wally_sub1[:, :, :, qwer_a[4]]  # [0]
+        tmeptemp_5 = x_wally_sub1[:, :, :, qwer_a[5]]  # [7, 8, 9, 10]
+
+        tempWally_0 = torch.cat((tmeptemp_4, tmeptemp_3), -1)
+        tempWally_0 = torch.cat((tempWally_0, tmeptemp_2), -1)
+        tempWally_0 = torch.cat((tempWally_0, tmeptemp_5), -1)
+        tempWally_0 = torch.cat((tempWally_0, tmeptemp_0), -1)
+        tempWally_0 = torch.cat((tempWally_0, tmeptemp_1), -1)
+
+        '''
+        othertempWally_0 = torch.cat((x_up_sub, x_up_sub), -1)
+        othertempWally_0 = torch.cat((othertempWally_0, x_up_sub), -1)
+        othertempWally_0 = torch.cat((othertempWally_0, x_up_sub[:, :, :, 0].unsqueeze(-1).repeat(1, 1, 1, 2)), -1)
+        #otertempWally_0 = torch.cat((othertempWally_0, x_up_sub[:, :, :, 0].unsqueeze(-1).repeat(1, 1, 1, 1), -1))
+        '''
+
+        #for i in range(len(self.graph.part)):
+        #    num_node = len(self.graph.part[i])
+        #    x_up_wally[:, :, :, self.graph.part[i]] = x_wally_sub1[:, :, :, qwer_a[i]]
+
+        #for i in range(len(self.graph.part)):
+        #    num_node = len(self.graph.part[i])
+        #    x_up[:, :, :, self.graph.part[i]] = x_up_sub[:, :, :, i].unsqueeze(-1).repeat(1, 1, 1, num_node)  # wally
+
+        #wally_0 = torch.eq(tempWally_0, x_up)
+        #wally_1 = wally_0.float()
+        #wally_2 = torch.sum(wally_1)
+        #wally_3 = torch.numel(wally_1)
+
+
 
         # for non-local and fcn
-        x = torch.cat((x, x_up), 1)
+        #x = torch.cat((x, x_up), 1) #wally
+        x = torch.cat((x, tempWally_0), 1) #wally
+        #x = torch.cat((x, tempWally_0), 1)
         x = self.non_local(x)  # N, 2C, T, V
         x = self.fcn(x)  # N, 3, T, V
 
@@ -463,7 +644,13 @@ class WrapSTGCN(nn.Module):
         # process to stgcn
         x = x.unsqueeze(2).unsqueeze(-1)  # nx2x1x17x1
         out = self.stgcn(x)  # nx3x1x17x1
-        out = out.squeeze()  # nx3x17
+        #out2 = out
+        #out_alt = out.squeeze() # nx3x17
+        #out = out.squeeze(dim=0)  # wally
+        #out = out.squeeze(dim=1)  # wally
+        #out = out.squeeze(dim=2)  # wally
+        #out = out.resize_((3, 17))
+        out = out.view((3, 17))
 
         # remove the joint: 17 to 16
         Ct17 = torch.Tensor([
@@ -489,14 +676,28 @@ class WrapSTGCN(nn.Module):
         out = torch.matmul(out, C17)  # nx2x17
 
         out = out.permute(0, 2, 1).contiguous()  # nx16x3
-        return out
+
+        #////////////////
+        #out_wally_here_0 = out[0]
+        #out_wally_here_1 = out[1]
+        #wally_0 = torch.eq(out_wally_here_0, out_wally_here_1)
+        #wally_1 = wally_0.float()
+        #wally_2 = torch.sum(wally_1)
+        #wally_3 = torch.numel(wally_1)
+        #////////////////
+
+
+        return out[0]
 
 
 # test code here.
 if __name__ == '__main__':
-    input = torch.randn((12, 16, 2), requires_grad=True).cuda()
-    target = torch.randn((12, 16, 3), requires_grad=True).cuda()
-    model = WrapSTGCN().cuda()
+    #input = torch.randn((12, 16, 2), requires_grad=True).cuda()
+    #target = torch.randn((12, 16, 3), requires_grad=True).cuda()
+    #model = WrapSTGCN().cuda()
+    input = torch.randn((12, 16, 2), requires_grad=True).cpu() #wally
+    target = torch.randn((12, 16, 3), requires_grad=True).cpu() #wally
+    model = WrapSTGCN().cpu() #wally
     loss = nn.MSELoss()
     pre = model(input)
     l = loss(pre, target)
