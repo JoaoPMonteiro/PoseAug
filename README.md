@@ -1,4 +1,4 @@
-### PoseAug: A Differentiable Pose Augmentation Framework for 3D Human Pose Estimation running on the OAK-D
+### PoseAug for the [OAK-D](https://docs.luxonis.com/projects/hardware/en/latest/pages/BW1098OAK.html)
 
 Fork of the code [repository](https://github.com/jfzhang95/PoseAug/) for the paper:  
 **PoseAug: A Differentiable Pose Augmentation Framework for 3D Human Pose Estimation**  
