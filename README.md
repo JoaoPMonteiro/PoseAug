@@ -9,7 +9,7 @@ CVPR 2021 (oral presentation)
 with modifications to enable pretrained models [provided](https://drive.google.com/drive/folders/1mLttbyZxsRdN5kw1IRdzZozyfndhV3Wh) by the aformentioned paper authors to be exported to onnx and blob formats
 
 #### additional steps - datasets (addapted from https://github.com/jfzhang95/PoseAug/blob/main/DATASETS.md)
-
+   ```
    ${PoseAug}
    ├── data
       ├── data_3d_h36m.npz
@@ -18,6 +18,7 @@ with modifications to enable pretrained models [provided](https://drive.google.c
    ├── data_extra
       ├── test_set
          ├── test_3dhp.npz
+   ```
 
 #### additional steps - environment (check requirements.txt)
 
@@ -27,12 +28,13 @@ with modifications to enable pretrained models [provided](https://drive.google.c
 
 #### generated onnx and blobs
 
+   ```
    ${PoseAug}
    ├── onnx_files
       ├── ...
    ├── blob_files
       ├── ...
-
+   ```
 
 ### Acknowledgements
 
