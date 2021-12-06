@@ -6,9 +6,33 @@ Fork of the code [repository](https://github.com/jfzhang95/PoseAug/) for the pap
 CVPR 2021 (oral presentation)  
 [[paper](https://arxiv.org/pdf/2105.02465.pdf)] 
 
-with modifications to enable pretrained models provided by the aformentioned paper authors to be exported to onnx and blob formats
+with modifications to enable pretrained models [provided](https://drive.google.com/drive/folders/1mLttbyZxsRdN5kw1IRdzZozyfndhV3Wh) by the aformentioned paper authors to be exported to onnx and blob formats
+
+#### additional steps - datasets (addapted from https://github.com/jfzhang95/PoseAug/blob/main/DATASETS.md)
+
+   ${PoseAug}
+   ├── data
+      ├── data_3d_h36m.npz
+      ├── data_2d_h36m_gt.npz
+   ${PoseAug}
+   ├── data_extra
+      ├── test_set
+         ├── test_3dhp.npz
+
+#### additional steps - environment (check requirements.txt)
+
+#### generate onnx and blobs
 
 > ./do_stuff.sh
+
+#### generated onnx and blobs
+
+   ${PoseAug}
+   ├── onnx_files
+      ├── ...
+   ├── blob_files
+      ├── ...
+
 
 ### Acknowledgements
 
