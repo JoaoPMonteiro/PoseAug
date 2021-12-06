@@ -20,13 +20,15 @@ with modifications to enable the pretrained models [provided](https://drive.goog
          ├── test_3dhp.npz
    ```
 
-#### additional steps - environment (check requirements.txt)
+#### additional steps - environment 
+
+check requirements.txt
 
 #### generate onnx and blobs
 
 > ./do_stuff.sh
 
-#### generated onnx and blobs
+#### output onnx and blobs
 
    ```
    ${PoseAug}
